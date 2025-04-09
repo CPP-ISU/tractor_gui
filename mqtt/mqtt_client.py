@@ -1,9 +1,11 @@
 import paho.mqtt.client as mqtt
 
 class MqttClient:
-    def __init__(self, on_temp, on_speed, on_status=None):
+    def __init__(self, on_temp, on_speed, on_voltage=None, on_fuel=None, on_status=None):
         self.on_temp = on_temp
         self.on_speed = on_speed
+        self.on_voltage = on_voltage
+        self.on_fuel = on_fuel
         self.on_status = on_status
 
         self.client = mqtt.Client()
@@ -26,8 +28,11 @@ class MqttClient:
         print("Connected to MQTT broker")
         if self.on_status:
             self.on_status("connected")
+
         client.subscribe("tractor/sensor/temperature")
         client.subscribe("tractor/sensor/speed")
+        client.subscribe("tractor/sensor/voltage")
+        client.subscribe("tractor/sensor/fuel")
 
     def on_disconnect(self, client, userdata, rc):
         print("Disconnected from MQTT broker")
@@ -38,10 +43,15 @@ class MqttClient:
         topic = msg.topic
         payload = msg.payload.decode()
         print(f"MQTT → {topic}: {payload}")
+
         if topic == "tractor/sensor/temperature":
             self.on_temp(payload)
         elif topic == "tractor/sensor/speed":
             self.on_speed(payload)
+        elif topic == "tractor/sensor/voltage" and self.on_voltage:
+            self.on_voltage(payload)
+        elif topic == "tractor/sensor/fuel" and self.on_fuel:
+            self.on_fuel(payload)
 
     def publish_command(self, command):
         print(f"MQTT ← Command: {command}")

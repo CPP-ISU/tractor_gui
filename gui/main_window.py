@@ -25,8 +25,18 @@ class MainWindow(QWidget):
         self.speed_label = QLabel("Speed: -- mph")
         self.speed_label.setFont(font_label)
 
+        self.voltage_label = QLabel("Voltage: -- V")
+        self.voltage_label.setFont(font_label)
+
+        self.fuel_label = QLabel("Fuel Level: --%")
+        self.fuel_label.setFont(font_label)
+
         self.engine_status_label = QLabel("Engine: OFF")
         self.engine_status_label.setFont(font_label)
+
+        self.warning_label = QLabel("")
+        self.warning_label.setFont(QFont("Arial", 18, QFont.Bold))
+        self.warning_label.setStyleSheet("color: red;")
 
         # Speed Dial
         self.speed_dial = QDial()
@@ -42,29 +52,20 @@ class MainWindow(QWidget):
         dial_widget.setLayout(dial_wrapper)
 
         label_style = "color: white; font-size: 16px; font-weight: bold;"
-
         labels = {
-            (0, 2): "30",   
-            (1, 1): "20",   
-            (1, 3): "40",   
-            (2, 0): "10", 
-            (2, 4): "50",  
-            (3, 1): "0",   
-            (3, 3): "60",  
-            (4, 2): "mph"  
+            (0, 2): "30", (1, 1): "20", (1, 3): "40",
+            (2, 0): "10", (2, 4): "50", (3, 1): "0",
+            (3, 3): "60", (4, 2): "mph"
         }
-        # Add   dial in center
-        dial_wrapper.addWidget(self.speed_dial, 2, 2)
 
-        # Add labels
+        dial_wrapper.addWidget(self.speed_dial, 2, 2)
         for pos, text in labels.items():
             lbl = QLabel(text)
             lbl.setStyleSheet(label_style)
             lbl.setAlignment(Qt.AlignCenter)
             dial_wrapper.addWidget(lbl, pos[0], pos[1])
 
-
-        # Start/Stop Buttons
+        # Buttons
         self.btn_start = QPushButton("Start")
         self.btn_stop = QPushButton("Stop")
         self.btn_start.setFont(font_button)
@@ -82,24 +83,28 @@ class MainWindow(QWidget):
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.temp_label)
         main_layout.addWidget(self.speed_label)
+        main_layout.addWidget(self.voltage_label)
+        main_layout.addWidget(self.fuel_label)
         main_layout.addWidget(self.engine_status_label)
+        main_layout.addWidget(self.warning_label)
         main_layout.addLayout(button_layout)
         main_layout.addStretch()
         main_layout.addWidget(dial_widget, alignment=Qt.AlignHCenter)
         main_layout.addStretch()
-
         self.setLayout(main_layout)
 
-        # Engine state
         self.engine_on = False
 
-        # MQTT setup
+        # MQTT client
         self.mqtt = MqttClient(
             on_temp=self.update_temp,
             on_speed=self.update_speed,
+            on_voltage=self.update_voltage,
+            on_fuel=self.update_fuel,
             on_status=self.update_status
         )
         self.mqtt.connect()
+
         self.showFullScreen()
 
     def update_temp(self, value):
@@ -108,10 +113,36 @@ class MainWindow(QWidget):
     def update_speed(self, value):
         self.speed_label.setText(f"Speed: {value} mph")
         try:
-            val = float(value)
-            self.speed_dial.setValue(int(val))
+            self.speed_dial.setValue(int(float(value)))
         except ValueError:
             pass
+
+    def update_voltage(self, value):
+        self.voltage_label.setText(f"Voltage: {value} V")
+        try:
+            if float(value) < 12.0:
+                self.warning_label.setText("Low Battery Voltage!")
+            else:
+                self.clear_warning_if_safe()
+        except ValueError:
+            pass
+
+    def update_fuel(self, value):
+        self.fuel_label.setText(f"Fuel Level: {value}%")
+        try:
+            if float(value) < 20:
+                self.warning_label.setText("Low Fuel!")
+            else:
+                self.clear_warning_if_safe()
+        except ValueError:
+            pass
+
+    def clear_warning_if_safe(self):
+        if (
+            float(self.voltage_label.text().split()[1]) >= 12.0
+            and float(self.fuel_label.text().split()[2][:-1]) >= 20
+        ):
+            self.warning_label.setText("")
 
     def update_status(self, state):
         print(f"[MQTT] Status: {state}")
