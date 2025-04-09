@@ -100,6 +100,7 @@ class MainWindow(QWidget):
             on_status=self.update_status
         )
         self.mqtt.connect()
+        self.showFullScreen()
 
     def update_temp(self, value):
         self.temp_label.setText(f"Temperature: {value} °F")
