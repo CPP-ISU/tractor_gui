@@ -1,9 +1,10 @@
+import sys
 from PyQt5.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QDial, QGridLayout
+    QDial, QGridLayout, QSplashScreen, QApplication
 )
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QFont, QPixmap
 from mqtt.mqtt_client import MqttClient
 
 
@@ -14,11 +15,9 @@ class MainWindow(QWidget):
         self.setMinimumSize(500, 500)
         self.setStyleSheet("background-color: #1e1e1e; color: white;")
 
-        # Fonts
         font_label = QFont("Arial", 20, QFont.Bold)
         font_button = QFont("Arial", 16)
 
-        # Sensor Labels
         self.temp_label = QLabel("Temperature: -- °F")
         self.temp_label.setFont(font_label)
 
@@ -38,7 +37,6 @@ class MainWindow(QWidget):
         self.warning_label.setFont(QFont("Arial", 18, QFont.Bold))
         self.warning_label.setStyleSheet("color: red;")
 
-        # Speed Dial
         self.speed_dial = QDial()
         self.speed_dial.setMinimum(0)
         self.speed_dial.setMaximum(60)
@@ -46,7 +44,6 @@ class MainWindow(QWidget):
         self.speed_dial.setFixedSize(200, 200)
         self.speed_dial.setEnabled(False)
 
-        # Gauge wrapper with labels
         dial_wrapper = QGridLayout()
         dial_widget = QWidget()
         dial_widget.setLayout(dial_wrapper)
@@ -65,7 +62,6 @@ class MainWindow(QWidget):
             lbl.setAlignment(Qt.AlignCenter)
             dial_wrapper.addWidget(lbl, pos[0], pos[1])
 
-        # Buttons
         self.btn_start = QPushButton("Start")
         self.btn_stop = QPushButton("Stop")
         self.btn_start.setFont(font_button)
@@ -79,7 +75,6 @@ class MainWindow(QWidget):
         button_layout.addWidget(self.btn_start)
         button_layout.addWidget(self.btn_stop)
 
-        # Main Layout
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.temp_label)
         main_layout.addWidget(self.speed_label)
@@ -95,7 +90,6 @@ class MainWindow(QWidget):
 
         self.engine_on = False
 
-        # MQTT client
         self.mqtt = MqttClient(
             on_temp=self.update_temp,
             on_speed=self.update_speed,
@@ -138,11 +132,14 @@ class MainWindow(QWidget):
             pass
 
     def clear_warning_if_safe(self):
-        if (
-            float(self.voltage_label.text().split()[1]) >= 12.0
-            and float(self.fuel_label.text().split()[2][:-1]) >= 20
-        ):
-            self.warning_label.setText("")
+        try:
+            if (
+                float(self.voltage_label.text().split()[1]) >= 12.0 and
+                float(self.fuel_label.text().split()[2][:-1]) >= 20
+            ):
+                self.warning_label.setText("")
+        except Exception:
+            pass
 
     def update_status(self, state):
         print(f"[MQTT] Status: {state}")
