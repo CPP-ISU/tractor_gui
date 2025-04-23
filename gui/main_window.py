@@ -1,100 +1,110 @@
 import sys
 from PyQt5.QtWidgets import (
-    QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QDial, QGridLayout, QSplashScreen, QApplication
+    QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout
 )
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont, QPixmap
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 from mqtt.mqtt_client import MqttClient
+
 
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Tractor GUI")
-        self.setMinimumSize(500, 500)
-        self.setStyleSheet("background-color: #1e1e1e; color: white;")
+        self.setWindowTitle("CPP 2025 Tractor Dashboard")
+        self.setStyleSheet("background-color: black; color: white;")
+        self.setMinimumSize(1280, 480)
 
-        font_label = QFont("Arial", 20, QFont.Bold)
-        font_button = QFont("Arial", 16)
+        # Fonts
+        big_font = QFont("Arial", 36, QFont.Bold)
+        label_font = QFont("Arial", 16, QFont.Bold)
+        small_font = QFont("Arial", 12)
 
-        self.temp_label = QLabel("Temperature: -- °F")
-        self.temp_label.setFont(font_label)
+        def create_display(title, unit, value_text="--"):
+            layout = QVBoxLayout()
+            title_label = QLabel(title)
+            title_label.setFont(label_font)
+            title_label.setAlignment(Qt.AlignCenter)
 
-        self.speed_label = QLabel("Speed: -- mph")
-        self.speed_label.setFont(font_label)
+            value_label = QLabel(value_text)
+            value_label.setFont(big_font)
+            value_label.setStyleSheet("border: 3px solid red; padding: 10px;")
+            value_label.setAlignment(Qt.AlignCenter)
 
-        self.voltage_label = QLabel("Voltage: -- V")
-        self.voltage_label.setFont(font_label)
+            unit_label = QLabel(unit)
+            unit_label.setFont(label_font)
+            unit_label.setAlignment(Qt.AlignCenter)
 
-        self.fuel_label = QLabel("Fuel Level: --%")
-        self.fuel_label.setFont(font_label)
+            layout.addWidget(title_label)
+            layout.addWidget(value_label)
+            layout.addWidget(unit_label)
+            return layout, value_label
 
-        self.engine_status_label = QLabel("Engine: OFF")
-        self.engine_status_label.setFont(font_label)
+        # Display sections
+        rpm_box, self.rpm_value = create_display("ENGINE SPEED", "RPM")
+        mph_box, self.mph_value = create_display("WHEEL SPEED", "MPH")
+        volts_box, self.volts_value = create_display("GENERATOR", "VOLTS")
+        amps_box, self.amps_value = create_display("", "AMPS")  # Unused for now
 
-        self.warning_label = QLabel("")
-        self.warning_label.setFont(QFont("Arial", 18, QFont.Bold))
-        self.warning_label.setStyleSheet("color: red;")
+        # Gear Display
+        gear_layout = QVBoxLayout()
+        gear_title = QLabel("GEAR ⚙")
+        gear_title.setFont(label_font)
+        gear_title.setAlignment(Qt.AlignCenter)
 
-        self.speed_dial = QDial()
-        self.speed_dial.setMinimum(0)
-        self.speed_dial.setMaximum(60)
-        self.speed_dial.setNotchesVisible(True)
-        self.speed_dial.setFixedSize(200, 200)
-        self.speed_dial.setEnabled(False)
+        self.gear_label = QLabel("N")
+        self.gear_label.setFont(QFont("Arial", 48, QFont.Bold))
+        self.gear_label.setStyleSheet("border: 3px solid red; padding: 20px;")
+        self.gear_label.setAlignment(Qt.AlignCenter)
 
-        dial_wrapper = QGridLayout()
-        dial_widget = QWidget()
-        dial_widget.setLayout(dial_wrapper)
+        gear_layout.addWidget(gear_title)
+        gear_layout.addWidget(self.gear_label)
 
-        label_style = "color: white; font-size: 16px; font-weight: bold;"
-        labels = {
-            (0, 2): "30", (1, 1): "20", (1, 3): "40",
-            (2, 0): "10", (2, 4): "50", (3, 1): "0",
-            (3, 3): "60", (4, 2): "mph"
-        }
+        # Warnings
+        warning_box = QVBoxLayout()
+        warning_title = QLabel("WARNINGS ⚠")
+        warning_title.setFont(label_font)
+        warning_title.setAlignment(Qt.AlignCenter)
 
-        dial_wrapper.addWidget(self.speed_dial, 2, 2)
-        for pos, text in labels.items():
-            lbl = QLabel(text)
-            lbl.setStyleSheet(label_style)
-            lbl.setAlignment(Qt.AlignCenter)
-            dial_wrapper.addWidget(lbl, pos[0], pos[1])
+        self.warning_labels = []
+        for i in range(4):
+            w_label = QLabel("")
+            w_label.setFont(small_font)
+            w_label.setAlignment(Qt.AlignCenter)
+            w_label.setStyleSheet("color: red;" if i == 0 else "color: gray;")
+            self.warning_labels.append(w_label)
+            warning_box.addWidget(w_label)
 
-        self.btn_start = QPushButton("Start")
-        self.btn_stop = QPushButton("Stop")
-        self.btn_start.setFont(font_button)
-        self.btn_stop.setFont(font_button)
-        self.btn_stop.setEnabled(False)
+        warning_layout = QVBoxLayout()
+        warning_frame = QWidget()
+        warning_frame.setStyleSheet("border: 3px solid red; padding: 10px;")
+        warning_frame.setLayout(warning_box)
+        warning_layout.addWidget(warning_title)
+        warning_layout.addWidget(warning_frame)
 
-        self.btn_start.clicked.connect(self.start_engine)
-        self.btn_stop.clicked.connect(self.stop_engine)
+        # Main layout assembly
+        main_layout = QHBoxLayout()
+        main_layout.addLayout(rpm_box)
+        main_layout.addLayout(mph_box)
 
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(self.btn_start)
-        button_layout.addWidget(self.btn_stop)
+        generator_layout = QVBoxLayout()
+        generator_layout.addLayout(volts_box)
+        generator_layout.addLayout(amps_box)
+        main_layout.addLayout(generator_layout)
 
-        main_layout = QVBoxLayout()
-        main_layout.addWidget(self.temp_label)
-        main_layout.addWidget(self.speed_label)
-        main_layout.addWidget(self.voltage_label)
-        main_layout.addWidget(self.fuel_label)
-        main_layout.addWidget(self.engine_status_label)
-        main_layout.addWidget(self.warning_label)
-        main_layout.addLayout(button_layout)
-        main_layout.addStretch()
-        main_layout.addWidget(dial_widget, alignment=Qt.AlignHCenter)
-        main_layout.addStretch()
+        main_layout.addLayout(gear_layout)
+        main_layout.addLayout(warning_layout)
+
         self.setLayout(main_layout)
 
-        self.engine_on = False
-
+        # Connect MQTT
         self.mqtt = MqttClient(
             on_temp=self.update_temp,
             on_speed=self.update_speed,
             on_voltage=self.update_voltage,
-            on_fuel=self.update_fuel,
+            on_fuel=self.update_fuel,         # currently unused but ready
+            on_gear=self.update_gear,
+            on_warning=self.update_warning,
             on_status=self.update_status
         )
         self.mqtt.connect()
@@ -102,60 +112,33 @@ class MainWindow(QWidget):
         self.showFullScreen()
 
     def update_temp(self, value):
-        self.temp_label.setText(f"Temperature: {value} °F")
+        self.rpm_value.setText(value)
 
     def update_speed(self, value):
-        self.speed_label.setText(f"Speed: {value} mph")
-        try:
-            self.speed_dial.setValue(int(float(value)))
-        except ValueError:
-            pass
+        self.mph_value.setText(value)
 
     def update_voltage(self, value):
-        self.voltage_label.setText(f"Voltage: {value} V")
-        try:
-            if float(value) < 12.0:
-                self.warning_label.setText("Low Battery Voltage!")
-            else:
-                self.clear_warning_if_safe()
-        except ValueError:
-            pass
+        self.volts_value.setText(value)
 
     def update_fuel(self, value):
-        self.fuel_label.setText(f"Fuel Level: {value}%")
-        try:
-            if float(value) < 20:
-                self.warning_label.setText("Low Fuel!")
-            else:
-                self.clear_warning_if_safe()
-        except ValueError:
-            pass
+        self.amps_value.setText(value)  # Using AMPS box as Fuel display for now
 
-    def clear_warning_if_safe(self):
-        try:
-            if (
-                float(self.voltage_label.text().split()[1]) >= 12.0 and
-                float(self.fuel_label.text().split()[2][:-1]) >= 20
-            ):
-                self.warning_label.setText("")
-        except Exception:
-            pass
+    def update_gear(self, value):
+        self.gear_label.setText(value)
+
+    def update_warning(self, value):
+        self.warning_labels[0].setText(value)
 
     def update_status(self, state):
-        print(f"[MQTT] Status: {state}")
+        print(f"[MQTT STATUS] → {state}")
 
-    def start_engine(self):
-        if not self.engine_on:
-            self.engine_on = True
-            self.engine_status_label.setText("Engine: RUNNING")
-            self.btn_start.setEnabled(False)
-            self.btn_stop.setEnabled(True)
-            self.mqtt.publish_command("START")
 
-    def stop_engine(self):
-        if self.engine_on:
-            self.engine_on = False
-            self.engine_status_label.setText("Engine: OFF")
-            self.btn_start.setEnabled(True)
-            self.btn_stop.setEnabled(False)
-            self.mqtt.publish_command("STOP")
+def main():
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    main()
