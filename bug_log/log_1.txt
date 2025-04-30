@@ -1,0 +1,4 @@
+simulate test run
+can_to_mqtt runs
+can_to_mqtt does not recieve msg from test??
+maybe dbc file have problems

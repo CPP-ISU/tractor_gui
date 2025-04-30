@@ -7,7 +7,6 @@ from PyQt5.QtGui import QFont
 from mqtt.mqtt_client import MqttClient
 
 
-
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -44,7 +43,7 @@ class MainWindow(QWidget):
         rpm_box, self.rpm_value = create_display("ENGINE SPEED", "RPM")
         mph_box, self.mph_value = create_display("WHEEL SPEED", "MPH")
         volts_box, self.volts_value = create_display("GENERATOR", "VOLTS")
-        amps_box, self.amps_value = create_display("", "AMPS")  # Unused for now
+        fuel_box, self.fuel_value = create_display("FUEL", "%")
 
         # Gear Display
         gear_layout = QVBoxLayout()
@@ -89,7 +88,7 @@ class MainWindow(QWidget):
 
         generator_layout = QVBoxLayout()
         generator_layout.addLayout(volts_box)
-        generator_layout.addLayout(amps_box)
+        generator_layout.addLayout(fuel_box)
         main_layout.addLayout(generator_layout)
 
         main_layout.addLayout(gear_layout)
@@ -102,7 +101,7 @@ class MainWindow(QWidget):
             on_temp=self.update_temp,
             on_speed=self.update_speed,
             on_voltage=self.update_voltage,
-            on_fuel=self.update_fuel,         # currently unused but ready
+            on_fuel=self.update_fuel,
             on_gear=self.update_gear,
             on_warning=self.update_warning,
             on_status=self.update_status
@@ -121,13 +120,19 @@ class MainWindow(QWidget):
         self.volts_value.setText(value)
 
     def update_fuel(self, value):
-        self.amps_value.setText(value)  # Using AMPS box as Fuel display for now
+        self.fuel_value.setText(value)
 
     def update_gear(self, value):
         self.gear_label.setText(value)
 
     def update_warning(self, value):
-        self.warning_labels[0].setText(value)
+        warning_map = {
+            "0": "",
+            "1": "⚠ Engine Overheat",
+            "2": "⚠ Low Fuel",
+            "3": "⚠ Transmission Fault",
+        }
+        self.warning_labels[0].setText(warning_map.get(value, f"⚠ Unknown ({value})"))
 
     def update_status(self, state):
         print(f"[MQTT STATUS] → {state}")
